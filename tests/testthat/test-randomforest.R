@@ -22,7 +22,7 @@ if (require(randomForest, quietly = TRUE)) {
     salted_iris <- df_salt_na(iris, 0.1, c("Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width"))
     
     # Classification rf
-    crf <- randomForest(Species ~ ., data = salted_iris, localImp = TRUE, na.action = na.omit)
+    crf <- randomForest(Species ~ ., data = salted_iris, localImp = TRUE,  proximity = TRUE, na.action = na.omit)
     crf_fix <- randomForest(Species ~ ., data = salted_iris, localImp = TRUE, na.action = na.roughfix)
     
     crf_cats <- levels(salted_iris[["Species"]])
@@ -116,6 +116,9 @@ if (require(randomForest, quietly = TRUE)) {
         expect_warning(auc_noimp <- augment(crf_noimp))
         expect_equal(colnames(auc_noimp), c(names(iris), ".oob_times", ".fitted", paste0(".votes_", crf_cats)))
         expect_equal(nrow(auc_noimp), nrow(iris))
+        
+        auc_prox <- augment(crf, with_proximity = TRUE)
+        expect_equal(colnames(auc_prox), c(names(iris), ".oob_times", ".fitted", paste0(".votes_", crf_cats), paste0(".li_", crf_vars), paste0(".p_", seq_len(nrow(iris)))))
         
         aur <- augment(rrf)
         expect_equal(colnames(aur), c(names(airquality), ".oob_times", ".fitted", paste0(".li_", rrf_vars)))

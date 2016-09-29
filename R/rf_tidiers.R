@@ -90,6 +90,9 @@ tidy.randomForest.unsupervised <- function(x, ...) {
 
 #' @rdname rf_tidiers
 #' 
+#' @param with_proximity Boolean. Append a proximity matrix to \link{augment}
+#'   results?
+#' 
 #' @return \code{augment} returns the original data with additional columns:
 #'   \item{.oob_times}{The number of trees for which the given case was "out of bag". See \code{\link[randomForest]{randomForest} for more details.}}
 #'   \item{.fitted}{The fitted value or class.}
@@ -98,7 +101,7 @@ tidy.randomForest.unsupervised <- function(x, ...) {
 #'   \item{.votes_*}{For each case, the voting results, with one column per class.}
 #'   
 #' @export
-augment.randomForest <- function(x, data = NULL, ...) {   
+augment.randomForest <- function(x, data = NULL, with_proximity = FALSE, ...) {   
     
     # Extract data from model
     if (is.null(data)) {
@@ -114,13 +117,13 @@ augment.randomForest <- function(x, data = NULL, ...) {
                                        "classification" = augment.randomForest.classification,
                                        "regression" = augment.randomForest.regression,
                                        "unsupervised" = augment.randomForest.unsupervised)
-    augment.randomForest.method(x, data, ...)
+    augment.randomForest.method(x, data, with_proximity, ...)
 }
 
 #' @export
 augment.randomForest.formula <- augment.randomForest
 
-augment.randomForest.classification <- function(x, data, ...) {
+augment.randomForest.classification <- function(x, data, with_proximity, ...) {
     
     # When na.omit is used, case-wise model attributes will only be calculated
     # for complete cases in the original data. All columns returned with
@@ -161,8 +164,20 @@ augment.randomForest.classification <- function(x, data, ...) {
         warning("casewise importance measures are not available. Run randomForest(..., localImp = TRUE) for more detailed results.")
     }
     
+    full_proximity <- matrix(data = NA_real_, nrow = n_data, ncol = n_data)
+    if (with_proximity) {
+        proximity <- x[["proximity"]]
+        if (!is.null(proximity)) {
+            full_proximity[which(!na_at), which(!na_at)] <- proximity
+            full_proximity <- as.data.frame(full_proximity)
+            names(full_proximity) <- paste0("p_", names(full_proximity))
+        } else {
+            warning("Proximity measures are not available. Run randomForest(..., proximity = TRUE) for more detailed results.")
+        }
+    }
+    
     d <- data.frame(oob_times = oob_times, fitted = predicted)
-    d <- dplyr::bind_cols(d, full_votes, full_imp)
+    d <- dplyr::bind_cols(d, full_votes, full_imp, full_proximity)
     names(d) <- paste0(".", names(d))
     dplyr::bind_cols(data, d)
 }
